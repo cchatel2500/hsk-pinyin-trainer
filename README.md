@@ -28,30 +28,34 @@ Elle s’adresse aux apprenants du chinois mandarin, notamment dans le cadre du 
    👉 https://play.google.com/store/apps/details?id=ru.iiec.pydroid3
 
 Après avoir installé Pydroid 3 :
-    1. Ouvrir Pydroid 3
-    2. Aller dans le menu (≡ en haut à gauche) → Pip
-    3. Installer les bibliothèques suivantes une par une :
-pip install beautifulsoup4
-pip install unidecode
-pip install requests
-pip install playsound
+   - 1. Ouvrir Pydroid 3
+   - 2. Aller dans le menu (≡ en haut à gauche) → Pip
+   - 3. Installer les bibliothèques suivantes une par une :
+ 
+ pip install beautifulsoup4
+ pip install unidecode
+ pip install requests
+ pip install playsound
 
 📝 Remarque :
 Si playsound ne fonctionne pas sur votre appareil, vous pouvez utiliser l’application externe de prononciation via le clic sur les caractères chinois (site frdic.com intégré). 
 
 2. Téléchargez et décompressez l'archive `HSKTrainer_Android.zip`
 
+
 🔽 Comment décompresser l’archive .zip sur Android
 Si vous ne savez pas comment faire :
-        1. Ouvrez votre application “Fichiers” (ou “Mes fichiers” selon la marque de votre appareil)
-        2. Allez dans le dossier Download ou l’endroit où le fichier .zip a été téléchargé
-        3. Appuyez longuement sur le fichier HSKTrainer_Android.zip
-        4. Appuyez sur l’option “Extraire” ou “Décompresser”
+        - 1. Ouvrez votre application “Fichiers” (ou “Mes fichiers” selon la marque de votre appareil)
+        - 2. Allez dans le dossier Download ou l’endroit où le fichier .zip a été téléchargé
+        - 3. Appuyez longuement sur le fichier HSKTrainer_Android.zip
+        - 4. Appuyez sur l’option “Extraire” ou “Décompresser”
 (sur certains téléphones, l’option est dans un menu à trois points ⋮)
-        5. Un nouveau dossier HSKTrainer_Android/ sera créé.
+        - 5. Un nouveau dossier HSKTrainer_Android/ sera créé.
 C’est ce dossier que vous ouvrirez ensuite depuis Pydroid 3.
+
+
 📌 Si votre téléphone n’a pas de gestionnaire de fichiers intégré ou ne propose pas d’option de décompression :
-        ◦ Installez une application gratuite comme ZArchiver ou RAR depuis le Play Store.
+        - ◦ Installez une application gratuite comme ZArchiver ou RAR depuis le Play Store.
 
 3. Ouvrez **Pydroid 3**, puis :
    - Menu → Open → sélectionnez `hsk_trainer.py`
@@ -79,7 +83,6 @@ C’est ce dossier que vous ouvrirez ensuite depuis Pydroid 3.
 ## 📎 Format attendu du dictionnaire HTML
 
 dummy| HSK/chap  | Caractère | Pinyin | Traduction  | 
------|-----------|-----------|--------|-------------|
      | 1         | 我        | wǒ     | je / moi    |
      | 1         | 是        | shì    | être        |
 
