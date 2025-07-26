@@ -92,10 +92,10 @@ Installez une application gratuite comme :
 
 Voici un exemple d’écran de l’application en cours d’utilisation :
 
-![Interface Pydroid]("Screenshot_20250722-142619_Pydroid 3.jpg")
+![Interface Pydroid](Screenshot_20250722-142619_Pydroid3.jpg)
 
 
-![Interface Pydroid]("Screenshot_20250722-143401_Pydroid 3.jpg")
+![Interface Pydroid](Screenshot_20250722-143401_Pydroid3.jpg)
 
 
 ---
