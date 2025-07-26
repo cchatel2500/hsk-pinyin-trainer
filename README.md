@@ -88,6 +88,18 @@ Installez une application gratuite comme :
 
 ---
 
+### 🖼️ Aperçu de l’application
+
+Voici un exemple d’écran de l’application en cours d’utilisation :
+
+![Interface Pydroid]("Screenshot_20250722-142619_Pydroid 3.jpg")
+
+
+![Interface Pydroid]("Screenshot_20250722-143401_Pydroid 3.jpg")
+
+
+---
+
 ## 📎 Format attendu du dictionnaire HTML
 
 |dummy| HSK/chap  | Caractère | Pinyin | Traduction  |
