@@ -336,25 +336,48 @@ class PinyinTrainer:
     def show_related_characters(self, pinyin_search, correct_char):
         popup = tk.Toplevel(self.root)
         popup.title(f"Caractères avec pinyin '{pinyin_search}'")
-        popup.geometry("400x300")
+        popup.geometry("500x300")
 
-        frame = tk.Frame(popup)
-        frame.pack(expand=True, fill="both")
+        # --- Création du canvas scrollable ---
+        container = tk.Frame(popup)
+        container.pack(fill="both", expand=True)
 
-        # Liste des couples (caractère, traduction)
+        canvas = tk.Canvas(container)
+        v_scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        h_scrollbar = tk.Scrollbar(container, orient="horizontal", command=canvas.xview)
+
+        scrollable_frame = tk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+        canvas.grid(row=0, column=0, sticky="nsew")
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        # --- Liste des couples (caractère, traduction) ---
         matches = [(ch, fr) for ch, py, fr, _ in dictionary
                    if unidecode.unidecode(py) == unidecode.unidecode(pinyin_search)]
 
         if not matches:
-            tk.Label(frame, text="Aucun caractère trouvé", font=("Arial", 14)).pack(pady=20)
+            tk.Label(scrollable_frame, text="Aucun caractère trouvé", font=("Arial", 14)).pack(pady=20, anchor="w")
         else:
             for ch, fr in matches:
-                # On affiche caractère chinois + traduction FR
-                lbl = tk.Label(frame, text=f"{ch}  →  {fr}", font=("Arial", 14), cursor="hand2")
-                lbl.pack(pady=5, anchor="w")  # aligné à gauche
+                # Caractère + traduction, alignés à gauche
+                lbl = tk.Label(scrollable_frame, text=f"{ch}  →  {fr}", font=("Arial", 14), anchor="w")
+                lbl.pack(fill="x", padx=5, pady=3, anchor="w")
                 lbl.bind("<Button-1>", lambda e, c=ch: self.play_pronunciation(c))
 
-                # On colore le caractère correct
                 if ch == correct_char:
                     lbl.config(bg="yellow")
 
