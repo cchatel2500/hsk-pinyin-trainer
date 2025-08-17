@@ -11,7 +11,7 @@ Elle s’adresse aux apprenants du chinois mandarin, notamment dans le cadre du 
 - **Saisie du pinyin** avec retour visuel :
   - ✅ Vert clair : réponse correcte
   - 🟪 Violet / 🟧 Orange : partiellement correcte (mot juste ou mal placé)
-  - 🔴 Rouge : incorrect
+  - 🔴 Rouge : incorrect... à partir du pinyin tapé cherche les caractères chinois correspondant ('?' le premier caractère, '!' tous les caractères) 
   - 🟩 Vert pâle : début correct
 - Aide intégrée :
   - `,` → Affiche le pinyin
@@ -118,3 +118,4 @@ Créé avec ❤️ en Python + Tkinter.
 Compatible Windows et Android (via Pydroid 3).
 
 ---
+
