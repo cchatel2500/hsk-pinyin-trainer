@@ -8,7 +8,7 @@ import webbrowser
 # import pyttsx3
 import platform
 
-def load_dictionary(filename, hsk_levels=None):
+def load_dictionary(filename):
     with open(filename, "r", encoding="utf-8") as file:
         soup = BeautifulSoup(file, "html.parser")
 
@@ -23,10 +23,19 @@ def load_dictionary(filename, hsk_levels=None):
                 hsk = int(cols[1].text.strip())
             except:
                 hsk = None
-            if hsk_levels is None or hsk in hsk_levels:
-                words.append((chinese, pinyin, french))
+            words.append((chinese, pinyin, french, hsk))
 
     return words
+
+
+def filter_words_by_hsk(words, hsk_levels=None):
+    if hsk_levels is None:
+        return [(ch, py, fr) for (ch, py, fr, _) in words]
+    else:
+        return [
+            (ch, py, fr) for (ch, py, fr, hsk) in words if hsk in hsk_levels
+        ]
+
 
 def parse_hsk_levels(expr):
     levels = set()
@@ -39,8 +48,8 @@ def parse_hsk_levels(expr):
     return levels
 
 default_dict_file = "vocabulaire.html"
-hsk_filter_default = "2" #  "1-6"
 dictionary = load_dictionary(default_dict_file)
+hsk_filter_default = "2" #  "1-6"
 
 
 class PinyinTrainer:
@@ -64,37 +73,33 @@ class PinyinTrainer:
         self.hsk_filter = tk.StringVar(value=hsk_filter_default)
         self.correct_count = 0
         self.total_count = 0
-        self.words = dictionary.copy()
         self.translation_labels = []
         self.first_good_result = []
         self.entries = []
         self.word_info = []
+        self.char_labels = []  #
 
         self.generate_new_set()
         # init lecture par pyttsx3
         # self.engine = pyttsx3.init()
         # self.engine.setProperty('rate', 150)
 
-    def reset_hsk(self):
-        self.correct_count = 0  # Réinitialiser le score uniquement lors du changement de HSK
-        self.total_count = 0
-        self.generate_new_set()
 
     def generate_new_set(self):
         self.translation_labels.clear()
         self.first_good_result.clear()
         self.entries.clear()
         self.word_info.clear()
-        # self.words = dictionary.copy()
-        # self.words = [w for w in dictionary if w[0] == self.hsk_level.get()]
+        self.char_labels.clear()
+
         if self.hsk_filter.get() != self.old_hsk_filter:
             self.correct_count = 0  # Réinitialiser le score uniquement lors du changement de HSK
             self.total_count = 0
             self.old_hsk_filter = self.hsk_filter.get()
-        hsk_levels = parse_hsk_levels(self.hsk_filter.get())
-        global dictionary
-        dictionary = load_dictionary(self.dict_file.get(), hsk_levels)
-        self.words = [w for w in dictionary]
+            hsk_levels = parse_hsk_levels(self.hsk_filter.get())
+            newSet = filter_words_by_hsk(dictionary, hsk_levels)
+            self.words = [w for w in newSet]
+
         random.shuffle(self.words)
         self.selected_words = self.words[:20]
         self.total_count += 20
@@ -106,6 +111,9 @@ class PinyinTrainer:
             self.dict_file.set(filepath)
             self.correct_count = 0
             self.total_count = 0
+            self.old_hsk_filter = ""
+            global dictionary
+            dictionary = load_dictionary(self.dict_file.get())
             self.generate_new_set()
 
     def play_google_tts(self, word):
@@ -216,7 +224,10 @@ class PinyinTrainer:
         for i, (chinese, pinyin, french) in enumerate(self.selected_words):
             char_label = tk.Label(frame, text=chinese, font=("NSimSun", 20), cursor="hand2")
             char_label.grid(row=i + tabHeader, column=0)
-            char_label.bind("<Button-1>", lambda e, ch=chinese: self.play_pronunciation(ch))
+            # char_label.bind("<Button-1>", lambda e, ch=chinese: self.play_pronunciation(ch))
+            char_label.bind("<Button-1>", lambda e, lbl=char_label: self.play_pronunciation(lbl.cget("text")))
+
+            self.char_labels.append(char_label)
 
             entry = tk.Entry(frame, font=("Arial", 14))
             entry.grid(row=i + tabHeader, column=1)
@@ -244,41 +255,108 @@ class PinyinTrainer:
                                        font=("Arial", 14, "bold"))
         self.accuracy_label_2.grid(column=0, sticky="w")
 
-
     def handle_special_input(self, event, idx, pinyin, french, chinese ):
         entry = self.entries[idx]
-        text = entry.get().strip()
+        raw = entry.get()
+        text = raw.strip()
+
+        # Pas de caractère spécial -> on ne fait rien
+        if not any(s in raw for s in (",", ".", "'", "?", "!")):
+            return
+
         if  "," in text:
             entry.delete(0, tk.END)
             entry.insert(0, pinyin)
             entry.config(bg="yellow")
             self.first_good_result[idx]=True
-        elif  "." in text:
+            return
+        if  "." in text:
             entry.delete(0, tk.END)
             entry.config(bg="white")
             self.translation_labels[idx].config(text=self.word_info[idx][1])
-        elif  "'" in text :
+            return
+        if  "'" in text :
             print(chinese)
             self.play_pygame_pronunciation(event, chinese)
             #self.play_google_tts(chinese)
-        elif "?"  in text:
-             # Comparer mots incorrects
-             user_words = unidecode.unidecode(text).split()
-             correct_words = unidecode.unidecode(pinyin).split()
-             # print (correct_words.reverse(), user_words.reverse())
-             self.entries[idx].delete(0, tk.END)
-             entry.config(bg="lightblue")
-             self.first_good_result[idx]=True
-             firstWord = True
-             for i, (uw, cw) in enumerate(zip(user_words, correct_words)):
-                 print (uw,cw)
-                 if uw != cw and firstWord:
-                     # Affiche la traduction du mot incorrect (si disponible)
-                     self.entries[idx].insert('end', cw+" ")
-                     firstWord = False
-                 else:
-                     self.entries[idx].insert('end', uw+" ")
+            return
+        if "!" in text:
+            # Nettoyer la chaîne (enlever ? ! , . ' etc.)
+            user_pinyin = text.strip("?!,.' ").strip()
+            self.show_related_characters(user_pinyin, self.selected_words[idx][0])
+            # On garde la couleur jaune sur le caractère correct
+            self.char_labels[idx].config(bg="yellow")
+            return
+        if "?"  in text:
+            if entry.cget("bg") == "salmon":  # Seulement si la zone est rouge
+                for chinese_char, pinyin_val, a, b in dictionary:
+                    if unidecode.unidecode(pinyin_val) == unidecode.unidecode(text.replace("?", "").strip()):
+                        self.char_labels[idx].config(text=chinese_char,bg="yellow")
+                        break
+                return  # on sort ici, pas de "Comparer mots incorrects"
+            # Comparer mots incorrects
+            user_words = unidecode.unidecode(text).split()
+            correct_words = unidecode.unidecode(pinyin).split()
+            # print (correct_words.reverse(), user_words.reverse())
+            self.entries[idx].delete(0, tk.END)
+            entry.config(bg="lightblue")
+            self.first_good_result[idx] = True
+            firstWord = True
+            for i, (uw, cw) in enumerate(zip(user_words, correct_words)):
+                print(uw, cw)
+                if uw != cw and firstWord:
+                    # Affiche la traduction du mot incorrect (si disponible)
+                    self.entries[idx].insert('end', cw + " ")
+                    firstWord = False
+                else:
+                    self.entries[idx].insert('end', uw + " ")
 
+    def show_related_characters_old(self, pinyin_search, correct_char):
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Caractères avec pinyin '{pinyin_search}'")
+        popup.geometry("300x200")
+
+        frame = tk.Frame(popup)
+        frame.pack(expand=True, fill="both")
+
+        # Liste des caractères correspondants
+        matches = [ch for ch, py, fr, _ in dictionary
+                   if unidecode.unidecode(py) == unidecode.unidecode(pinyin_search)]
+
+        if not matches:
+            tk.Label(frame, text="Aucun caractère trouvé", font=("Arial", 14)).pack(pady=20)
+        else:
+            for ch in matches:
+                lbl = tk.Label(frame, text=ch, font=("NSimSun", 20), cursor="hand2")
+                lbl.pack(pady=5)
+                lbl.bind("<Button-1>", lambda e, c=ch: self.play_pronunciation(c))
+                if ch == correct_char:
+                    lbl.config(bg="yellow")
+
+    def show_related_characters(self, pinyin_search, correct_char):
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Caractères avec pinyin '{pinyin_search}'")
+        popup.geometry("400x300")
+
+        frame = tk.Frame(popup)
+        frame.pack(expand=True, fill="both")
+
+        # Liste des couples (caractère, traduction)
+        matches = [(ch, fr) for ch, py, fr, _ in dictionary
+                   if unidecode.unidecode(py) == unidecode.unidecode(pinyin_search)]
+
+        if not matches:
+            tk.Label(frame, text="Aucun caractère trouvé", font=("Arial", 14)).pack(pady=20)
+        else:
+            for ch, fr in matches:
+                # On affiche caractère chinois + traduction FR
+                lbl = tk.Label(frame, text=f"{ch}  →  {fr}", font=("Arial", 14), cursor="hand2")
+                lbl.pack(pady=5, anchor="w")  # aligné à gauche
+                lbl.bind("<Button-1>", lambda e, c=ch: self.play_pronunciation(c))
+
+                # On colore le caractère correct
+                if ch == correct_char:
+                    lbl.config(bg="yellow")
 
     def check_pinyin(self, event, idx, correct_pinyin):
 
@@ -332,7 +410,6 @@ class PinyinTrainer:
         self.accuracy_label_1.config(text=f"Score: {self.correct_count}/{self.total_count}")
         self.accuracy_label_2.config(text=f"Score: {self.correct_count}/{self.total_count}")
 
-
     def show_french(self, idx, french):
         self.entries[idx].delete(0, tk.END)
         self.entries[idx].insert(0, french)
@@ -383,7 +460,6 @@ class PinyinTrainer:
             tk.Label(scrollable_frame, text=french, font=("Arial", 10)).grid(row=i + 1, column=2, sticky='w')
 
         tk.Button(scrollable_frame, text="Fermer", command=result_window.destroy, font=("Arial", 14)).grid(row=21,column=1)
-
 
 if __name__ == "__main__":
     root = tk.Tk()
