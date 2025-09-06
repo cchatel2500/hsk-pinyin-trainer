@@ -231,9 +231,9 @@ class PinyinTrainer:
 
             entry = tk.Entry(frame, font=("Arial", 14))
             entry.grid(row=i + tabHeader, column=1)
-            entry.bind("<KeyRelease>", lambda e, idx=i, p=pinyin, f=french, c=chinese: (
-                self.handle_special_input(e, idx, p, f, c ),
-                self.check_pinyin(e, idx, p)
+            entry.bind("<KeyRelease>", lambda e, idx=i: (
+                self.handle_special_input(e, idx),
+                self.check_pinyin(e, idx)
             ))
             entry.bind("<Button-3>", lambda e, idx=i, f=french: self.show_french(idx, f))
             entry.bind("<Double-Button-3>", lambda e, idx=i, p=pinyin: self.show_pinyin(idx, p))
@@ -255,7 +255,7 @@ class PinyinTrainer:
                                        font=("Arial", 14, "bold"))
         self.accuracy_label_2.grid(column=0, sticky="w")
 
-    def handle_special_input(self, event, idx, pinyin, french, chinese ):
+    def handle_special_input(self, event, idx ):
         entry = self.entries[idx]
         raw = entry.get()
         text = raw.strip()
@@ -266,16 +266,17 @@ class PinyinTrainer:
 
         if  "," in text:
             entry.delete(0, tk.END)
-            entry.insert(0, pinyin)
+            entry.insert(0, self.word_info[idx][0]) # pinyin actuel
             entry.config(bg="yellow")
             self.first_good_result[idx]=True
             return
         if  "." in text:
             entry.delete(0, tk.END)
             entry.config(bg="white")
-            self.translation_labels[idx].config(text=self.word_info[idx][1])
+            self.translation_labels[idx].config(text=self.word_info[idx][1]) # trad actuelle
             return
         if  "'" in text :
+            chinese = self.char_labels[idx].cget("text")
             print(chinese)
             self.play_pygame_pronunciation(event, chinese)
             #self.play_google_tts(chinese)
@@ -285,103 +286,109 @@ class PinyinTrainer:
             user_pinyin = text.strip("?!,.' ").strip()
             self.show_related_characters(user_pinyin, self.selected_words[idx][0])
             # On garde la couleur jaune sur le caractère correct
-            self.char_labels[idx].config(bg="yellow")
+            self.char_labels[idx].config(bg="orange")
             return
         if "?"  in text:
             if entry.cget("bg") == "salmon":  # Seulement si la zone est rouge
-                for chinese_char, pinyin_val, a, b in dictionary:
-                    if unidecode.unidecode(pinyin_val) == unidecode.unidecode(text.replace("?", "").strip()):
-                        self.char_labels[idx].config(text=chinese_char,bg="yellow")
-                        break
-                return  # on sort ici, pas de "Comparer mots incorrects"
-            # Comparer mots incorrects
-            user_words = unidecode.unidecode(text).split()
-            correct_words = unidecode.unidecode(pinyin).split()
-            # print (correct_words.reverse(), user_words.reverse())
-            self.entries[idx].delete(0, tk.END)
-            entry.config(bg="lightblue")
-            self.first_good_result[idx] = True
-            firstWord = True
-            for i, (uw, cw) in enumerate(zip(user_words, correct_words)):
-                print(uw, cw)
-                if uw != cw and firstWord:
-                    # Affiche la traduction du mot incorrect (si disponible)
-                    self.entries[idx].insert('end', cw + " ")
-                    firstWord = False
-                else:
-                    self.entries[idx].insert('end', uw + " ")
+                numeric_part = ''.join([c for c in text if c.isdigit()])
+                user_pinyin = ''.join([c for c in text if not c.isdigit()]).replace("?", "").strip()
 
-    def show_related_characters_old(self, pinyin_search, correct_char):
-        popup = tk.Toplevel(self.root)
-        popup.title(f"Caractères avec pinyin '{pinyin_search}'")
-        popup.geometry("300x200")
+                candidates = self.get_candidates_from_pinyin(user_pinyin)
 
-        frame = tk.Frame(popup)
-        frame.pack(expand=True, fill="both")
+                if candidates:
+                    if numeric_part.isdigit():
+                        idx_choice = int(numeric_part) - 1
+                        if 0 <= idx_choice < len(candidates):
+                            chosen_char, chosen_py, chosen_fr = candidates[idx_choice]
+                        else:
+                            chosen_char, chosen_py, chosen_fr = candidates[0]
+                    else:
+                        chosen_char, chosen_py, chosen_fr = candidates[0]
 
-        # Liste des caractères correspondants
-        matches = [ch for ch, py, fr, _ in dictionary
-                   if unidecode.unidecode(py) == unidecode.unidecode(pinyin_search)]
+                    self.char_labels[idx].config(text=chosen_char, bg="yellow")
+                    self.translation_labels[idx].config(text=chosen_fr)
+                    self.word_info[idx] = (chosen_py, chosen_fr)
 
-        if not matches:
-            tk.Label(frame, text="Aucun caractère trouvé", font=("Arial", 14)).pack(pady=20)
-        else:
-            for ch in matches:
-                lbl = tk.Label(frame, text=ch, font=("NSimSun", 20), cursor="hand2")
-                lbl.pack(pady=5)
-                lbl.bind("<Button-1>", lambda e, c=ch: self.play_pronunciation(c))
-                if ch == correct_char:
-                    lbl.config(bg="yellow")
+
+    def get_candidates_from_pinyin(self, pinyin_search):
+        """
+        Retourne la liste (caractère chinois, traduction FR)
+        pour un pinyin donné (sans accents).
+        """
+        return [
+            (ch, py, fr)
+            for ch, py, fr, _ in dictionary
+            if unidecode.unidecode(py) == unidecode.unidecode(pinyin_search)
+        ]
 
     def show_related_characters(self, pinyin_search, correct_char):
+        if getattr(self, "popup_opening", False):
+            return
+        self.popup_opening = True
+
         popup = tk.Toplevel(self.root)
         popup.title(f"Caractères avec pinyin '{pinyin_search}'")
-        popup.geometry("500x300")
+        popup.geometry("500x150")
 
-        # --- Création du canvas scrollable ---
-        container = tk.Frame(popup)
-        container.pack(fill="both", expand=True)
+        def on_close():
+            self.popup_opening = False
+            popup.destroy()
 
-        canvas = tk.Canvas(container)
-        v_scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        h_scrollbar = tk.Scrollbar(container, orient="horizontal", command=canvas.xview)
+        popup.protocol("WM_DELETE_WINDOW", on_close)
 
-        scrollable_frame = tk.Frame(canvas)
+        # --- Zone scrollable ---
+        canvas = tk.Canvas(popup)
+        scrollbar_y = tk.Scrollbar(popup, orient="vertical", command=canvas.yview)
+        scrollbar_x = tk.Scrollbar(popup, orient="horizontal", command=canvas.xview)
 
-        scrollable_frame.bind(
+        frame = tk.Frame(canvas)
+        frame.bind(
             "<Configure>",
             lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
+                scrollregion=canvas.bbox("all"),
+                xscrollcommand=scrollbar_x.set,
+                yscrollcommand=scrollbar_y.set,
             )
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        canvas.create_window((0, 0), window=frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
 
         canvas.grid(row=0, column=0, sticky="nsew")
-        v_scrollbar.grid(row=0, column=1, sticky="ns")
-        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
 
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+        popup.grid_rowconfigure(0, weight=1)
+        popup.grid_columnconfigure(0, weight=1)
 
-        # --- Liste des couples (caractère, traduction) ---
-        matches = [(ch, fr) for ch, py, fr, _ in dictionary
+        # --- En-têtes ---
+        tk.Label(frame, text="Caractère", font=("Arial", 12, "bold")).grid(row=0, column=0, padx=5, pady=5)
+        tk.Label(frame, text="Pinyin", font=("Arial", 12, "bold")).grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(frame, text="Français", font=("Arial", 12, "bold")).grid(row=0, column=2, padx=5, pady=5)
+
+        # --- Données ---
+        matches = [(ch, py, fr) for ch, py, fr, _ in dictionary
                    if unidecode.unidecode(py) == unidecode.unidecode(pinyin_search)]
 
         if not matches:
-            tk.Label(scrollable_frame, text="Aucun caractère trouvé", font=("Arial", 14)).pack(pady=20, anchor="w")
+            tk.Label(frame, text="Aucun caractère trouvé", font=("Arial", 14)).grid(row=1, column=0, columnspan=3,
+                                                                                    pady=20)
         else:
-            for ch, fr in matches:
-                # Caractère + traduction, alignés à gauche
-                lbl = tk.Label(scrollable_frame, text=f"{ch}  →  {fr}", font=("Arial", 14), anchor="w")
-                lbl.pack(fill="x", padx=5, pady=3, anchor="w")
-                lbl.bind("<Button-1>", lambda e, c=ch: self.play_pronunciation(c))
+            for i, (ch, py, fr) in enumerate(matches, start=1):
+                lbl_ch = tk.Label(frame, text=ch, font=("NSimSun", 20), cursor="hand2")
+                lbl_ch.grid(row=i, column=0, padx=5, pady=2, sticky="w")
+                lbl_ch.bind("<Button-1>", lambda e, c=ch: self.play_pronunciation(c))
+
+                lbl_py = tk.Label(frame, text=py, font=("Arial", 12), anchor="w")
+                lbl_py.grid(row=i, column=1, padx=5, pady=2, sticky="w")
+
+                lbl_fr = tk.Label(frame, text=fr, font=("Arial", 12), anchor="w")
+                lbl_fr.grid(row=i, column=2, padx=5, pady=2, sticky="w")
 
                 if ch == correct_char:
-                    lbl.config(bg="yellow")
+                    lbl_ch.config(bg="yellow")
 
-    def check_pinyin(self, event, idx, correct_pinyin):
+    def check_pinyin(self, event, idx):
 
         entry = self.entries[idx]
         if entry.cget("bg") == "lightblue" :
@@ -400,6 +407,8 @@ class PinyinTrainer:
         #     entry.delete(0, tk.END)
         #     return
 
+        #
+        correct_pinyin = self.word_info[idx][0]  # pinyin actuel
         correct = unidecode.unidecode(correct_pinyin)
 
         if user_input == correct:
