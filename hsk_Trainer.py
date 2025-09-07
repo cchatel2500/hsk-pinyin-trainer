@@ -329,13 +329,13 @@ class PinyinTrainer:
             # Comparer mots incorrects
             user_words = unidecode.unidecode(text).split()
             correct_words = unidecode.unidecode(current_pinyin).split()
-            print ("correct: ",correct_words, user_words, text)
+            #print ("correct: ",correct_words, user_words, text)
             self.entries[idx].delete(0, tk.END)
             entry.config(bg="lightblue")
             self.first_good_result[idx] = True
             firstWord = True
             for i, (uw, cw) in enumerate(zip(user_words, correct_words)):
-                print("uw: ",uw, cw)
+                #print("uw: ",uw, cw)
                 if uw != cw and firstWord:
                     # Affiche la traduction du mot incorrect (si disponible)
                     self.entries[idx].insert('end', cw + " ")
