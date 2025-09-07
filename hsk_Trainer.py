@@ -259,6 +259,8 @@ class PinyinTrainer:
         entry = self.entries[idx]
         raw = entry.get()
         text = raw.strip()
+        # pinyin/trad courants (dynamiques)
+        current_pinyin, current_french = self.word_info[idx]
 
         # Pas de caractère spécial -> on ne fait rien
         if not any(s in raw for s in (",", ".", "'", "?", "!")):
@@ -281,34 +283,65 @@ class PinyinTrainer:
             self.play_pygame_pronunciation(event, chinese)
             #self.play_google_tts(chinese)
             return
-        if "!" in text:
-            # Nettoyer la chaîne (enlever ? ! , . ' etc.)
-            user_pinyin = text.strip("?!,.' ").strip()
-            self.show_related_characters(user_pinyin, self.selected_words[idx][0])
-            # On garde la couleur jaune sur le caractère correct
-            self.char_labels[idx].config(bg="orange")
-            return
-        if "?"  in text:
+        if "!!" in text:
             if entry.cget("bg") == "salmon":  # Seulement si la zone est rouge
-                numeric_part = ''.join([c for c in text if c.isdigit()])
-                user_pinyin = ''.join([c for c in text if not c.isdigit()]).replace("?", "").strip()
+                # Nettoyer la chaîne (enlever ? ! , . ' etc.)
+                user_pinyin = text.strip("?!,.' ").strip()
+                self.popup_opening = False
+                return
+        if "!" in text:
+            if entry.cget("bg") == "salmon":  # Seulement si la zone est rouge
+                # Nettoyer la chaîne (enlever ? ! , . ' etc.)
+                user_pinyin = text.strip("?!,.' ").strip()
+                self.show_related_characters(user_pinyin, self.selected_words[idx][0])
+                # On garde la couleur jaune sur le caractère correct
+                self.char_labels[idx].config(bg="orange")
+                return
 
-                candidates = self.get_candidates_from_pinyin(user_pinyin)
+        if "?" in text and entry.cget("bg") == "salmon":
+            # extraire éventuel index (ex: "2?")
+            numeric_part = ''.join(c for c in text if c.isdigit())
+            user_pinyin = text.replace("?", "").replace(numeric_part, "").strip()
 
-                if candidates:
-                    if numeric_part.isdigit():
-                        idx_choice = int(numeric_part) - 1
-                        if 0 <= idx_choice < len(candidates):
-                            chosen_char, chosen_py, chosen_fr = candidates[idx_choice]
-                        else:
-                            chosen_char, chosen_py, chosen_fr = candidates[0]
-                    else:
-                        chosen_char, chosen_py, chosen_fr = candidates[0]
+            # candidats (char, fr) pour ce pinyin
+            candidates = self.get_candidates_from_pinyin(user_pinyin)
 
-                    self.char_labels[idx].config(text=chosen_char, bg="yellow")
-                    self.translation_labels[idx].config(text=chosen_fr)
-                    self.word_info[idx] = (chosen_py, chosen_fr)
+            if candidates:
+                if numeric_part.isdigit():
+                    choice = int(numeric_part) - 1
+                    if not (0 <= choice < len(candidates)):
+                        choice = 0
+                else:
+                    choice = 0
 
+                chosen_char, chosen_fr = candidates[choice]
+
+                # mise à jour affichage
+                self.char_labels[idx].config(text=chosen_char, bg="yellow")
+                self.translation_labels[idx].config(text=chosen_fr)
+
+                # *** très important : mettre à jour la "vérité" utilisée partout ***
+                # désormais, pour cette ligne, le pinyin de référence est celui que l’utilisateur a demandé
+                self.word_info[idx] = (user_pinyin, chosen_fr)
+            return
+        # '?' : remplacement par un caractère correspondant au pinyin saisi
+        if "?" in text and entry.cget("bg") != "salmon":
+            # Comparer mots incorrects
+            user_words = unidecode.unidecode(text).split()
+            correct_words = unidecode.unidecode(current_pinyin).split()
+            print ("correct: ",correct_words, user_words, text)
+            self.entries[idx].delete(0, tk.END)
+            entry.config(bg="lightblue")
+            self.first_good_result[idx] = True
+            firstWord = True
+            for i, (uw, cw) in enumerate(zip(user_words, correct_words)):
+                print("uw: ",uw, cw)
+                if uw != cw and firstWord:
+                    # Affiche la traduction du mot incorrect (si disponible)
+                    self.entries[idx].insert('end', cw + " ")
+                    firstWord = False
+                else:
+                    self.entries[idx].insert('end', uw + " ")
 
     def get_candidates_from_pinyin(self, pinyin_search):
         """
