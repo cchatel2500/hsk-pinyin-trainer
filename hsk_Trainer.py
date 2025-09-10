@@ -314,7 +314,7 @@ class PinyinTrainer:
                 else:
                     choice = 0
 
-                chosen_char, chosen_fr = candidates[choice]
+                chosen_char, chosen_py, chosen_fr = candidates[choice]
 
                 # mise à jour affichage
                 self.char_labels[idx].config(text=chosen_char, bg="yellow")
